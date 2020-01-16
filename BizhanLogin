@@ -1,0 +1,142 @@
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from chaojiying import Chaojiying_Client
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver import ActionChains
+import time
+from PIL import Image
+from io import BytesIO
+
+EMAIL = '你的B站账号'
+PASSWORD = '你的B站密码'
+#???????????
+CHAOJIYING_USENAME = '你的超级鹰账号'
+CHAOJIYING_PASSWORD = '你的超级鹰密码'
+CHAOJIYING_SOFT_ID = '你的超级鹰软件ID'
+CHAOJIYING_KIND = 9004
+
+class BizhanClick():
+    def __init__(self):
+        self.url = 'https://passport.bilibili.com/login'
+        self.browser = webdriver.Chrome("C:/Program Files (x86)/Google/Chrome/Application/chromedriver.exe")
+        self.wait = WebDriverWait(self.browser,20)
+        self.email = EMAIL
+        self.password = PASSWORD
+        self.Chaojiying_Client = Chaojiying_Client(CHAOJIYING_USENAME,CHAOJIYING_PASSWORD,CHAOJIYING_SOFT_ID)
+
+    def open(self):
+        """
+        ????????????
+        :return: None
+        """
+        self.browser.get(self.url)
+        email = self.wait.until(EC.presence_of_element_located((By.ID,'login-username')))
+        password = self.wait.until(EC.presence_of_element_located((By.ID,'login-passwd')))
+        email.send_keys(self.email)
+        password.send_keys(self.password)
+
+    def get_BizhanClick_button(self):
+        password = self.wait.until(EC.presence_of_element_located((By.ID, 'login-passwd')))
+        password.send_keys(Keys.ENTER)
+
+    def get_Bizhan_element(self):
+        """
+        ????????,?????
+        :return:
+        """
+        element = self.wait.until(EC.presence_of_element_located((By.CLASS_NAME,'geetest_panel_next')))
+        return element
+
+    def get_position(self):
+        """
+        ??????
+        :return:
+        """
+        element = self.get_Bizhan_element()
+        time.sleep(2)
+        location = element.location
+        size = element.size
+        top,bottom,left,right = location['y'],location['y']+size['height'],location['x'],location['x']+size['width']
+        return (top,bottom,left,right)
+
+    def get_screenshot(self):
+        """
+        ????????
+        :return: ????
+        """
+        screenshot = self.browser.get_screenshot_as_png()
+        screenshot = Image.open(BytesIO(screenshot))
+        return screenshot
+
+    def get_BizhanClick_image(self,name='captcha.png'):
+        """
+        ???????
+        :param name:
+        :return: ????
+        """
+        top,bottom,left,right = self.get_position()
+        screenshot = self.get_screenshot()
+        captcha = screenshot.crop((left,top,right,bottom))
+        return captcha
+
+    def get_points(self, captcha_result):
+        """
+        ???????
+        :param captcha_result:
+        :return:
+        """
+        groups = captcha_result.get('pic_str').split('|')
+        locations = [[int(number) for number in group.split(',')] for group in groups]
+        return locations
+
+    def touch_click_words(self,locations):
+        """
+        ??????
+        :param location:
+        :return:
+        """
+        for location in locations:
+            ActionChains(self.browser).move_to_element_with_offset(self.get_Bizhan_element(),location[0],location[1]).click().perform()
+            time.sleep(0.8)
+
+    def touch_click_verify(self):
+        """
+        ??????
+        :return: None
+        """
+        button = self.wait.until(EC.element_to_be_clickable((By.CLASS_NAME, 'geetest_commit_tip')))
+        button.click()
+
+    def zhuchengxu(self):
+        self.open()
+        self.get_BizhanClick_button()
+        image = self.get_BizhanClick_image()
+        bytes_array = BytesIO()
+        image.save(bytes_array,format = 'PNG')
+        #?????
+        result =self.Chaojiying_Client.PostPic(bytes_array.getvalue(),CHAOJIYING_KIND)
+        print(result)
+        location = self.get_points(result)
+        self.touch_click_words(location)
+        time.sleep(1)
+        self.touch_click_verify()
+        """
+        #??????
+        success = self.wait.until(
+            EC.text_to_be_present_in_element((By.CLASS_NAME, 'bili-icon_dingdao_gerenzhongxin'), '????'))
+        print(success)
+
+        # ?????
+        if not success:
+            self.crack()
+        else:
+            self.login()
+"""
+
+
+
+if __name__ == '__main__':
+    Bizhan = BizhanClick()
+    Bizhan.zhuchengxu()
